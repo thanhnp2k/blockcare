@@ -17,7 +17,7 @@ const (
 	tpDayGrouping    = "/ticketpool/bydate/day"
 	tpAllGrouping    = "/ticketpool/bydate/all"
 	allProjectFundTx = "/address/Dcur2mcGjmENx4DhNqDctW5wJCVyT3Qeqkx/types/all"
-	serverAPIUrl     = "http://127.0.0.1:7777/api"
+	serverAPIUrl     = "http://127.0.0.1:8777/api"
 
 	statusOK      = http.StatusOK
 	maxIterations = 10

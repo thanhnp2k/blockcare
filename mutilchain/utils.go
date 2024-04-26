@@ -10,9 +10,12 @@ import (
 )
 
 const (
-	TYPEDCR = "dcr"
-	TYPELTC = "ltc"
-	TYPEBTC = "btc"
+	TYPEDCR  = "dcr"
+	TYPELTC  = "ltc"
+	TYPEBTC  = "btc"
+	TYPEDERO = "dero"
+	TESTNET  = "testnet"
+	MAINNET  = "mainnet"
 )
 
 func IsEmpty(x interface{}) bool {

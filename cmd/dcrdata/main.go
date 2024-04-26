@@ -29,6 +29,7 @@ import (
 	"github.com/decred/dcrd/rpcclient/v8"
 	ltcchainhash "github.com/ltcsuite/ltcd/chaincfg/chainhash"
 	ltcClient "github.com/ltcsuite/ltcd/rpcclient"
+	"github.com/ybbus/jsonrpc"
 
 	"github.com/decred/dcrdata/db/dcrpg/v8"
 	"github.com/decred/dcrdata/exchanges/v3"
@@ -42,6 +43,9 @@ import (
 	"github.com/decred/dcrdata/v8/db/dbtypes"
 	"github.com/decred/dcrdata/v8/mempool"
 	"github.com/decred/dcrdata/v8/mutilchain"
+	"github.com/decred/dcrdata/v8/mutilchain/mutilchainrpcutils"
+	"github.com/decred/dcrdata/v8/mutilchain/structure/derostructure"
+
 	"github.com/decred/dcrdata/v8/mutilchain/btcrpcutils"
 	"github.com/decred/dcrdata/v8/mutilchain/ltcrpcutils"
 	"github.com/decred/dcrdata/v8/pubsub"
@@ -208,6 +212,7 @@ func _main(ctx context.Context) error {
 		Params:               activeChain,
 		LTCParams:            ltcActiveChain,
 		BTCParams:            btcActiveChain,
+		MutilchainParam:      mutilchainNet,
 		DevPrefetch:          !cfg.NoDevPrefetch,
 		HidePGConfig:         cfg.HidePGConfig,
 		AddrCacheAddrCap:     cfg.AddrCacheLimit,
@@ -256,9 +261,109 @@ func _main(ctx context.Context) error {
 	var barLoad chan *dbtypes.ProgressBarLoad
 	var ltcdClient *ltcClient.Client
 	var btcdClient *btcClient.Client
+	var deroClient jsonrpc.RPCClient
 	var ltcDisabled = mutilchain.IsDisabledChain(cfg.DisabledChain, mutilchain.TYPELTC)
 	var btcDisabled = mutilchain.IsDisabledChain(cfg.DisabledChain, mutilchain.TYPEBTC)
+	var deroDisabled = mutilchain.IsDisabledChain(cfg.DisabledChain, mutilchain.TYPEDERO)
 	//Start mutilchain support
+	//Check Dero enabled
+	if !deroDisabled {
+		endPoint := "localhost:10102"
+		deroClient = jsonrpc.NewClient("http://" + endPoint + "/json_rpc")
+		response, err := deroClient.Call("get_info")
+		if err == nil {
+			log.Infof("Connection to RPC server successful")
+		} else {
+			return fmt.Errorf("Connection to RPC server Failed err %v", err)
+		}
+		chainDB.DeroClient = deroClient
+		var info derostructure.GetInfo_Result
+		err = response.GetObject(&info)
+		currentNet := mutilchain.MAINNET
+		if info.Testnet {
+			currentNet = mutilchain.TESTNET
+		}
+		if currentNet != mutilchainNet {
+			log.Criticalf("Dero: Network of connected node, %s, does not match expected "+
+				"network, %s.", mutilchainNet, currentNet)
+			return fmt.Errorf("expected network %s, got %s", mutilchainNet, currentNet)
+		}
+		deroHash, deroHeight, lastErr := mutilchainrpcutils.GetBestBlock(deroClient, mutilchain.TYPEDERO)
+		if lastErr != nil {
+			return fmt.Errorf("Get lastest block for Dero failed: %v", lastErr)
+		}
+		bestBlock := &dcrpg.MutilchainBestBlock{
+			Height: deroHeight,
+			Hash:   deroHash,
+		}
+		chainDB.DeroBestBlock = bestBlock
+		var deroNewPGIndexes, deroUpdateAllAddresses bool
+		deroHeightDB, err := chainDB.MutilchainHeightDB(mutilchain.TYPEDERO)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return fmt.Errorf("Unable to get Dero height from PostgreSQL DB: %v", err)
+			}
+			deroHeightDB = 0
+		}
+		deroBlocksBehind := deroHeight - deroHeightDB
+		if deroBlocksBehind < 0 {
+			return fmt.Errorf("Dero Node is still syncing. Node height = %d, "+
+				"DB height = %d", deroHeight, deroHeightDB)
+		}
+		if deroBlocksBehind > 7500 {
+			log.Infof("Setting Dero PSQL sync to rebuild address table after large "+
+				"import (%d blocks).", deroBlocksBehind)
+			deroUpdateAllAddresses = true
+			if deroBlocksBehind > 40000 {
+				log.Infof("Setting Dero PSQL sync to drop indexes prior to bulk data "+
+					"import (%d blocks).", deroBlocksBehind)
+				deroNewPGIndexes = true
+			}
+		}
+
+		quit := make(chan struct{})
+		// Only accept a single CTRL+C
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		// Start waiting for the interrupt signal
+		go func() {
+			<-c
+			signal.Stop(c)
+			// Close the channel so multiple goroutines can get the message
+			log.Infof("CTRL+C hit.  Closing goroutines.")
+			close(quit)
+		}()
+		var deroPgHeight int64
+		deroPgSyncRes := make(chan dbtypes.SyncResult)
+		for {
+			go chainDB.SyncMutilchainDBAsync(deroPgSyncRes, deroClient, quit, deroNewPGIndexes, deroUpdateAllAddresses, mutilchain.TYPEDERO)
+			// Wait for the results
+			pgRes := <-deroPgSyncRes
+			deroPgHeight = pgRes.Height
+			log.Infof("PostgreSQL Dero sync ended at height %d", deroPgHeight)
+
+			// See if there was a SIGINT (CTRL+C)
+			select {
+			case <-quit:
+				log.Info("Quit signal received during Dero DB sync.")
+				return nil
+			default:
+			}
+			if pgRes.Error != nil {
+				fmt.Println("dcrpg.SyncMutilchainChainDBAsync Dero failed at height", pgRes.Height)
+				return pgRes.Error
+			}
+			if deroPgHeight == int64(deroHeight) {
+				break
+			}
+			// Break loop to continue starting hcexplorer.
+			log.Infof("Restarting Dero sync with PostgreSQL at %d.",
+				deroPgHeight)
+			deroUpdateAllAddresses, deroNewPGIndexes = false, false
+		}
+		chainDB.MutilchainEnableDuplicateCheckOnInsert(true, mutilchain.TYPEDERO)
+	}
+
 	//CHeck LTC enabled
 	if !ltcDisabled {
 		ltcNotifier := notify.NewLtcNotifier()
@@ -282,22 +387,21 @@ func _main(ctx context.Context) error {
 		}
 
 		//Start - LTC Sync handler
-		_, ltcHeight, err := ltcdClient.GetBestBlock()
-
-		//init bestblock height chainDB
-		dbHeight, dbHash, lastDBBlockErr := chainDB.GetMutilchainBestDBBlock(ctx, mutilchain.TYPELTC)
-		if lastDBBlockErr != nil {
-			return fmt.Errorf("Get best block from DB failed for ltcd: %v", lastDBBlockErr)
+		ltcBestBlockHash, ltcHeight, err := ltcdClient.GetBestBlock()
+		if err != nil {
+			return fmt.Errorf("Get best block from daemon failed for ltcd: %v", err)
 		}
+		// //init bestblock height chainDB
+		// dbHeight, dbHash, lastDBBlockErr := chainDB.GetMutilchainBestDBBlock(ctx, mutilchain.TYPELTC)
+		// if lastDBBlockErr != nil {
+		// 	return fmt.Errorf("Get best block from DB failed for ltcd: %v", lastDBBlockErr)
+		// }
 		//create bestblock object
 		bestBlock := &dcrpg.MutilchainBestBlock{
-			Height: dbHeight,
-			Hash:   dbHash,
+			Height: int64(ltcHeight),
+			Hash:   ltcBestBlockHash.String(),
 		}
 		chainDB.LtcBestBlock = bestBlock
-		if err != nil {
-			return fmt.Errorf("Unable to get block from ltc node: %v", err)
-		}
 		var ltcNewPGIndexes, ltcUpdateAllAddresses bool
 		ltcHeightDB, err := chainDB.MutilchainHeightDB(mutilchain.TYPELTC)
 		if err != nil {
@@ -388,15 +492,15 @@ func _main(ctx context.Context) error {
 		chainDB.BtcClient = btcdClient
 		//Start - BTC Sync handler
 		btcBestBlockHash, btcHeight, err := btcdClient.GetBestBlock()
+		if err != nil {
+			return fmt.Errorf("Unable to get block from btc node: %v", err)
+		}
 		//create bestblock object
 		bestBlock := &dcrpg.MutilchainBestBlock{
 			Height: int64(btcHeight),
 			Hash:   btcBestBlockHash.String(),
 		}
 		chainDB.BtcBestBlock = bestBlock
-		if err != nil {
-			return fmt.Errorf("Unable to get block from btc node: %v", err)
-		}
 		var btcNewPGIndexes, btcUpdateAllAddresses bool
 		btcHeightDB, err := chainDB.MutilchainHeightDB(mutilchain.TYPEBTC)
 		if err != nil {

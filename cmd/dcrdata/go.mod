@@ -41,6 +41,7 @@ require (
 	github.com/ltcsuite/ltcd/chaincfg/chainhash v1.0.2
 	github.com/ltcsuite/ltcd/ltcutil v1.1.3
 	github.com/rs/cors v1.8.2
+	github.com/ybbus/jsonrpc v2.1.2+incompatible
 	golang.org/x/net v0.21.0
 	golang.org/x/text v0.14.0
 )
@@ -55,6 +56,7 @@ require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
 	github.com/aead/siphash v1.0.1 // indirect
+	github.com/aead/skein v0.0.0-20160722084837-9365ae6e95d2 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 // indirect
 	github.com/asdine/storm/v3 v3.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -81,6 +83,7 @@ require (
 	github.com/companyzero/sntrup4591761 v0.0.0-20200131011700-2b0d299dbd22 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dchest/blake256 v1.1.0 // indirect
 	github.com/dchest/blake2b v1.0.0 // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/dcrlabs/neutrino-bch v0.0.0-20221031001408-f296bfa9bd1c // indirect
@@ -115,6 +118,7 @@ require (
 	github.com/decred/go-socks v1.1.0 // indirect
 	github.com/dgraph-io/badger v1.6.2 // indirect
 	github.com/dgraph-io/ristretto v0.0.2 // indirect
+	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/ethereum/go-ethereum v1.11.5 // indirect
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
@@ -144,6 +148,7 @@ require (
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
+	github.com/intel-go/cpuid v0.0.0-20220614022739-219e067757cb // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jrick/bitset v1.0.0 // indirect
 	github.com/jrick/wsrpc/v2 v2.3.4 // indirect
@@ -197,6 +202,7 @@ require (
 	github.com/urfave/cli/v2 v2.17.2-0.20221006022127-8f469abc00aa // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/zquestz/grab v0.0.0-20190224022517-abcee96e61b1 // indirect
+	gitlab.com/nitya-sattva/go-x11 v0.0.0-20161218191547-fe7663eb78fd // indirect
 	go.etcd.io/bbolt v1.3.7-0.20220130032806-d5db64bdbfde // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20230206171751-46f607a40771 // indirect

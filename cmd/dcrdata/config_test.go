@@ -147,7 +147,7 @@ func TestDefaultConfigAPIListenWithEnv(t *testing.T) {
 }
 
 func TestDefaultConfigAppDataDir(t *testing.T) {
-	expected := dcrutil.AppDataDir("dcrdata", false)
+	expected := dcrutil.AppDataDir("blockcare", false)
 	cfg, err := loadConfig()
 	if err != nil {
 		t.Fatalf("Failed to load dcrdata config: %v", err)

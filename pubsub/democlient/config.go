@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	defaultURL = "ws://localhost:7777/ps"
+	defaultURL = "ws://localhost:8777/ps"
 )
 
 type config struct {

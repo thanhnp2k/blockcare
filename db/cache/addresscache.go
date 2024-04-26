@@ -898,17 +898,20 @@ func (cm *cacheMetrics) historyMiss() {
 // AddressCache maintains a store of address data. Use NewAddressCache to create
 // a new AddressCache with initialized internal data structures.
 type AddressCache struct {
-	mtx         sync.RWMutex
-	a           map[string]*AddressCacheItem
-	a_ltc       map[string]*MutilchainAddressCacheItem
-	a_btc       map[string]*MutilchainAddressCacheItem
-	chainType   string
-	cap         int
-	cap_btc     int
-	cap_ltc     int
-	capAddr     int
-	capAddr_btc int
-	capAddr_ltc int
+	mtx          sync.RWMutex
+	a            map[string]*AddressCacheItem
+	a_ltc        map[string]*MutilchainAddressCacheItem
+	a_btc        map[string]*MutilchainAddressCacheItem
+	a_dero       map[string]*MutilchainAddressCacheItem
+	chainType    string
+	cap          int
+	cap_btc      int
+	cap_ltc      int
+	cap_dero     int
+	capAddr      int
+	capAddr_btc  int
+	capAddr_ltc  int
+	capAddr_dero int
 	// Unlike addresses and address rows, which are counted precisely, UTXO
 	// limits are enforced per-address. maxUTXOsPerAddr is computed on
 	// construction from the specified total utxo capacity specified in bytes.
@@ -954,6 +957,8 @@ func NewMutilchainAddressCache(rowCapacity, addressCapacity, utxoCapacityBytes i
 		ac.a_ltc = make(map[string]*MutilchainAddressCacheItem)
 	case mutilchain.TYPEBTC:
 		ac.a_btc = make(map[string]*MutilchainAddressCacheItem)
+	case mutilchain.TYPEDERO:
+		ac.a_dero = make(map[string]*MutilchainAddressCacheItem)
 	default:
 		ac.a = make(map[string]*AddressCacheItem)
 	}
@@ -1032,6 +1037,8 @@ func (ac *AddressCache) MutilchainAddressCacheItem(addr string, chainType string
 		return ac.a_btc[addr]
 	case mutilchain.TYPELTC:
 		return ac.a_ltc[addr]
+	case mutilchain.TYPEDERO:
+		return ac.a_dero[addr]
 	default:
 		return &MutilchainAddressCacheItem{}
 	}
@@ -1279,6 +1286,8 @@ func (ac *AddressCache) GetMutilchainAddresCacheItemMap(chainType string) map[st
 		return ac.a_btc
 	case mutilchain.TYPELTC:
 		return ac.a_ltc
+	case mutilchain.TYPEDERO:
+		return ac.a_dero
 	default:
 		return make(map[string]*MutilchainAddressCacheItem)
 	}
@@ -1370,6 +1379,8 @@ func (ac *AddressCache) DeleteCacheItemMap(key string, chainType string) {
 		return
 	case mutilchain.TYPELTC:
 		delete(ac.a_ltc, key)
+	case mutilchain.TYPEDERO:
+		delete(ac.a_dero, key)
 	default:
 		return
 	}
@@ -1448,6 +1459,8 @@ func (ac *AddressCache) addMutilchainCacheItem(addr string, aci *MutilchainAddre
 		aci0 = ac.a_btc[addr]
 	case mutilchain.TYPELTC:
 		aci0 = ac.a_ltc[addr]
+	case mutilchain.TYPEDERO:
+		aci0 = ac.a_dero[addr]
 	default:
 		return false
 	}
@@ -1471,6 +1484,8 @@ func (ac *AddressCache) setMutilchainCacheItemOnMap(addr string, value *Mutilcha
 		ac.a_btc[addr] = value
 	case mutilchain.TYPELTC:
 		ac.a_ltc[addr] = value
+	case mutilchain.TYPEDERO:
+		ac.a_dero[addr] = value
 	default:
 		return
 	}
@@ -1523,6 +1538,8 @@ func (ac *AddressCache) setMutilchainCacheItemRows(addr string, rows []*dbtypes.
 		aci = ac.a_btc[addr]
 	case mutilchain.TYPELTC:
 		aci = ac.a_ltc[addr]
+	case mutilchain.TYPEDERO:
+		aci = ac.a_dero[addr]
 	default:
 		return false
 	}
@@ -1579,6 +1596,8 @@ func (ac *AddressCache) GetMutilchainCap(chainType string) int {
 		return ac.cap_btc
 	case mutilchain.TYPELTC:
 		return ac.cap_ltc
+	case mutilchain.TYPEDERO:
+		return ac.cap_dero
 	default:
 		return ac.cap
 	}
@@ -1590,6 +1609,8 @@ func (ac *AddressCache) GetMutilchainAddrCap(chainType string) int {
 		return ac.capAddr_btc
 	case mutilchain.TYPELTC:
 		return ac.capAddr_ltc
+	case mutilchain.TYPEDERO:
+		return ac.capAddr_dero
 	default:
 		return ac.capAddr
 	}
@@ -1815,6 +1836,8 @@ func (ac *AddressCache) ClearMutilchainRows(addr string, chainType string) {
 		aci = ac.a_btc[addr]
 	case mutilchain.TYPELTC:
 		aci = ac.a_ltc[addr]
+	case mutilchain.TYPEDERO:
+		aci = ac.a_dero[addr]
 	default:
 		return
 	}

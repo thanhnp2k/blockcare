@@ -11,7 +11,7 @@ import (
 const (
 	DefaultResultDirectory = "results"
 	DefaultProfilesPath    = "profiles.json"
-	DefaultServer          = "http://localhost:7777"
+	DefaultServer          = "http://localhost:8777"
 )
 
 type config struct {

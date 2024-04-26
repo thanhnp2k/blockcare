@@ -26,7 +26,7 @@ import (
 )
 
 var scriptClassNames map[string]ScriptClass
-var MutilchainList = []string{"ltc", "btc"}
+var MutilchainList = []string{"ltc", "btc", "dero"}
 
 func init() {
 	// Set up the map for the NewScriptClassFromString function.

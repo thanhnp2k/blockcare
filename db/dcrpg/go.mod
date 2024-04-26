@@ -32,12 +32,14 @@ require (
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
+	github.com/aead/skein v0.0.0-20160722084837-9365ae6e95d2 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.1.3 // indirect
 	github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f // indirect
 	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd // indirect
 	github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/dchest/blake256 v1.1.0 // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/decred/base58 v1.0.5 // indirect
 	github.com/decred/dcrd/crypto/blake256 v1.0.1 // indirect
@@ -50,14 +52,18 @@ require (
 	github.com/decred/go-socks v1.1.0 // indirect
 	github.com/dgraph-io/badger v1.6.2 // indirect
 	github.com/dgraph-io/ristretto v0.0.2 // indirect
+	github.com/ebfe/keccak v0.0.0-20150115210727-5cc570678d1b // indirect
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/intel-go/cpuid v0.0.0-20220614022739-219e067757cb // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/ltcsuite/ltcd/btcec/v2 v2.3.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
+	github.com/ybbus/jsonrpc v2.1.2+incompatible // indirect
+	gitlab.com/nitya-sattva/go-x11 v0.0.0-20161218191547-fe7663eb78fd // indirect
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect

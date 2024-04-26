@@ -47,6 +47,7 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil"
 	ltcClient "github.com/ltcsuite/ltcd/rpcclient"
 	ltcwire "github.com/ltcsuite/ltcd/wire"
+	"github.com/ybbus/jsonrpc"
 
 	"github.com/decred/dcrdata/db/dcrpg/v8/internal"
 	apitypes "github.com/decred/dcrdata/v8/api/types"
@@ -272,16 +273,20 @@ type ChainDB struct {
 	chainParams        *chaincfg.Params
 	ltcChainParams     *ltc_chaincfg.Params
 	btcChainParams     *btc_chaincfg.Params
+	deroChainNet       string
 	devAddress         string
 	dupChecks          bool
 	ltcDupChecks       bool
 	btcDupChecks       bool
+	deroDupChecks      bool
 	bestBlock          *BestBlock
 	LtcBestBlock       *MutilchainBestBlock
 	BtcBestBlock       *MutilchainBestBlock
+	DeroBestBlock      *MutilchainBestBlock
 	lastBlock          map[chainhash.Hash]uint64
 	ltcLastBlock       map[ltc_chainhash.Hash]uint64
 	btcLastBlock       map[btc_chainhash.Hash]uint64
+	deroLastBlock      map[string]uint64
 	stakeDB            *stakedb.StakeDatabase
 	unspentTicketCache *TicketTxnIDGetter
 	AddressCache       *cache.AddressCache
@@ -293,6 +298,7 @@ type ChainDB struct {
 	utxoCache          utxoStore
 	ltcUtxoCache       utxoStore
 	btcUtxoCache       utxoStore
+	deroUtxoCache      utxoStore
 	mixSetDiffsMtx     sync.Mutex
 	mixSetDiffs        map[uint32]int64 // height to value diff
 	deployments        *ChainDeployments
@@ -305,6 +311,7 @@ type ChainDB struct {
 	Client            *rpcclient.Client
 	LtcClient         *ltcClient.Client
 	BtcClient         *btcClient.Client
+	DeroClient        jsonrpc.RPCClient
 	tipMtx            sync.Mutex
 	tipSummary        *apitypes.BlockDataBasic
 	lastExplorerBlock struct {
@@ -326,6 +333,15 @@ type ChainDB struct {
 		difficulties map[int64]float64
 	}
 	ltcLastExplorerBlock struct {
+		sync.Mutex
+		hash      string
+		blockInfo *exptypes.BlockInfo
+		// Somewhat unrelated, difficulties is a map of timestamps to mining
+		// difficulties. It is in this cache struct since these values are
+		// commonly retrieved when the explorer block is updated.
+		difficulties map[int64]float64
+	}
+	deroLastExplorerBlock struct {
 		sync.Mutex
 		hash      string
 		blockInfo *exptypes.BlockInfo
@@ -517,6 +533,7 @@ type ChainDBCfg struct {
 	Params                            *chaincfg.Params
 	LTCParams                         *ltc_chaincfg.Params
 	BTCParams                         *btc_chaincfg.Params
+	MutilchainParam                   string
 	DevPrefetch, HidePGConfig         bool
 	AddrCacheRowCap, AddrCacheAddrCap int
 	AddrCacheUTXOByteCap              int
@@ -783,6 +800,7 @@ func NewChainDB(ctx context.Context, cfg *ChainDBCfg, stakeDB *stakedb.StakeData
 		chainParams:        params,
 		ltcChainParams:     ltcParams,
 		btcChainParams:     btcParams,
+		deroChainNet:       cfg.MutilchainParam,
 		devAddress:         projectFundAddress,
 		dupChecks:          true,
 		ltcDupChecks:       true,
@@ -791,6 +809,7 @@ func NewChainDB(ctx context.Context, cfg *ChainDBCfg, stakeDB *stakedb.StakeData
 		lastBlock:          make(map[chainhash.Hash]uint64),
 		ltcLastBlock:       make(map[ltc_chainhash.Hash]uint64),
 		btcLastBlock:       make(map[btc_chainhash.Hash]uint64),
+		deroLastBlock:      make(map[string]uint64),
 		stakeDB:            stakeDB,
 		unspentTicketCache: unspentTicketCache,
 		AddressCache:       addrCache,
@@ -874,6 +893,8 @@ func (pgb *ChainDB) MutilchainEnableDuplicateCheckOnInsert(dupCheck bool, chainT
 		pgb.ltcDupChecks = dupCheck
 	case mutilchain.TYPEBTC:
 		pgb.btcDupChecks = dupCheck
+	case mutilchain.TYPEDERO:
+		pgb.deroDupChecks = dupCheck
 	default:
 		pgb.dupChecks = dupCheck
 	}
@@ -1188,6 +1209,8 @@ func (pgb *ChainDB) MutilchainHeight(chainType string) int64 {
 		return pgb.LtcBestBlock.MutilchainHeight()
 	case mutilchain.TYPEBTC:
 		return pgb.BtcBestBlock.MutilchainHeight()
+	case mutilchain.TYPEDERO:
+		return pgb.DeroBestBlock.MutilchainHeight()
 	default:
 		return pgb.bestBlock.Height()
 	}
@@ -1255,6 +1278,12 @@ func (pgb *ChainDB) LTCBestBlock() (*ltc_chainhash.Hash, int64) {
 	defer pgb.LtcBestBlock.Mtx.RUnlock()
 	hash, _ := ltc_chainhash.NewHashFromStr(pgb.LtcBestBlock.Hash)
 	return hash, pgb.LtcBestBlock.Height
+}
+
+func (pgb *ChainDB) DEROBestBlock() (string, int64) {
+	pgb.DeroBestBlock.Mtx.RLock()
+	defer pgb.DeroBestBlock.Mtx.RUnlock()
+	return pgb.DeroBestBlock.Hash, pgb.DeroBestBlock.Height
 }
 
 func (pgb *ChainDB) BestBlockStr() (string, int64) {
@@ -2866,6 +2895,8 @@ func (pgb *ChainDB) IsMutilchainValidAddress(chainType string, address string) b
 		_, err = btcutil.DecodeAddress(address, pgb.btcChainParams)
 	case mutilchain.TYPELTC:
 		_, err = ltcutil.DecodeAddress(address, pgb.ltcChainParams)
+	case mutilchain.TYPEDERO:
+		return address != ""
 	default:
 		return false
 	}
@@ -2967,6 +2998,10 @@ func (pgb *ChainDB) GetMutilchainHashHeight(chainType string) (hash string, heig
 		chainHash, ltcheight := pgb.LTCBestBlock()
 		hash = chainHash.String()
 		height = ltcheight
+	case mutilchain.TYPEDERO:
+		chainHash, deroheight := pgb.DEROBestBlock()
+		hash = chainHash
+		height = deroheight
 	default:
 		chainHash, dcrheight := pgb.BestBlock()
 		hash = chainHash.String()
@@ -8604,12 +8639,33 @@ func (pgb *ChainDB) LTCDifficulty(timestamp int64) float64 {
 	return diff
 }
 
+func (pgb *ChainDB) DERODifficulty(timestamp int64) float64 {
+	pgb.deroLastExplorerBlock.Lock()
+	diff, ok := pgb.deroLastExplorerBlock.difficulties[timestamp]
+	pgb.deroLastExplorerBlock.Unlock()
+	if ok {
+		return diff
+	}
+
+	diff, err := RetrieveMutilchainDiff(pgb.ctx, pgb.db, timestamp, mutilchain.TYPEDERO)
+	if err != nil {
+		log.Errorf("Unable to retrieve difficulty: %v", err)
+		return -1
+	}
+	pgb.deroLastExplorerBlock.Lock()
+	pgb.deroLastExplorerBlock.difficulties[timestamp] = diff
+	pgb.deroLastExplorerBlock.Unlock()
+	return diff
+}
+
 func (pgb *ChainDB) MutilchainDifficulty(timestamp int64, chainType string) float64 {
 	switch chainType {
 	case mutilchain.TYPEBTC:
 		return pgb.BTCDifficulty(timestamp)
 	case mutilchain.TYPELTC:
 		return pgb.LTCDifficulty(timestamp)
+	case mutilchain.TYPEDERO:
+		return pgb.DERODifficulty(timestamp)
 	default:
 		return pgb.Difficulty(timestamp)
 	}

@@ -29,14 +29,15 @@ import (
 	"github.com/ltcsuite/ltcd/ltcutil"
 
 	"github.com/decred/dcrdata/v8/db/dbtypes"
+	"github.com/decred/dcrdata/v8/mutilchain"
 	"github.com/decred/dcrdata/v8/netparams"
 	"github.com/decred/dcrdata/v8/netparams/btcnetparams"
 	"github.com/decred/dcrdata/v8/netparams/ltcnetparams"
 )
 
 const (
-	defaultConfigFilename = "dcrdata.conf"
-	defaultLogFilename    = "dcrdata.log"
+	defaultConfigFilename = "blockcare.conf"
+	defaultLogFilename    = "blockcare.log"
 	defaultDataDirname    = "data"
 	defaultLogLevel       = "info"
 	defaultLogDirname     = "logs"
@@ -48,9 +49,9 @@ var ltcActiveNet = &ltcnetparams.MainNetParams
 var ltcActiveChain = &ltccfg.MainNetParams
 var btcActiveNet = &btcnetparams.MainNetParams
 var btcActiveChain = &btccfg.MainNetParams
-
+var mutilchainNet = mutilchain.MAINNET
 var (
-	defaultHomeDir              = dcrutil.AppDataDir("dcrdata", false)
+	defaultHomeDir              = dcrutil.AppDataDir("blockcare", false)
 	defaultConfigFile           = filepath.Join(defaultHomeDir, defaultConfigFilename)
 	defaultLogDir               = filepath.Join(defaultHomeDir, defaultLogDirname)
 	defaultDataDir              = filepath.Join(defaultHomeDir, defaultDataDirname)
@@ -66,7 +67,7 @@ var (
 	defaultHTTPProfPath = "/p"
 	defaultAPIProto     = "http"
 	//dcr config
-	defaultMainnetPort = "7777"
+	defaultMainnetPort = "8777"
 	defaultTestnetPort = "17778"
 	defaultSimnetPort  = "17779"
 	defaultIndentJSON  = "   "
@@ -85,7 +86,7 @@ var (
 	defaultCacheControlMaxAge  = 86400
 	defaultInsightReqRateLimit = 20.0
 	defaultMaxCSVAddrs         = 25
-	defaultServerHeader        = "dcrdata"
+	defaultServerHeader        = "blockcare"
 
 	defaultMempoolMinInterval = 2
 	defaultMempoolMaxInterval = 120
@@ -110,7 +111,7 @@ var (
 	defaultRateCertFile      = filepath.Join(defaultHomeDir, "rpc.cert")
 
 	defaultMainnetLink  = "https://blockcare.pro/"
-	defaultTestnetLink  = "https://testnet.dcrdata.org/"
+	defaultTestnetLink  = "https://testnet.blockcare.pro/"
 	defaultOnionAddress = ""
 
 	maxSyncStatusLimit = 5000
@@ -559,6 +560,7 @@ func loadConfig() (*config, error) {
 	defaultPort := defaultMainnetPort
 	ltcActiveNet = &ltcnetparams.MainNetParams
 	ltcActiveChain = &ltccfg.MainNetParams
+	mutilchainNet = mutilchain.MAINNET
 	ltcDefaultPort := defaultLTCMainnetPort
 	btcActiveNet = &btcnetparams.MainNetParams
 	btcActiveChain = &btccfg.MainNetParams
@@ -573,6 +575,7 @@ func loadConfig() (*config, error) {
 		btcActiveNet = &btcnetparams.TestNet3Params
 		btcActiveChain = &btccfg.TestNet3Params
 		btcDefaultPort = defaultBTCTestnetPort
+		mutilchainNet = mutilchain.TESTNET
 		numNets++
 	}
 	if cfg.SimNet {
